@@ -4,7 +4,7 @@ numpy>=1.26
 altair>=5.0
 networkx>=3.2
 plotly>=5.18
-kaleido>=0.2           # for SVG export
+# kaleido>=0.2           # for SVG export - no need anymore
 scipy>=1.11
 scikit-posthocs>=0.9.0
 matplotlib>=3.8
@@ -12,3 +12,4 @@ seaborn>=0.13
 openpyxl>=3.1         # for .xls/.xlsx uploads
 
 pyarrow>=15.0         # faster CSV / Parquet support
+
