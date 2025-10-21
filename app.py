@@ -653,21 +653,44 @@ if draw_net:
             fig = build_directed_network_figure(sub_net, edge_alpha, direction=orient, show_labels=show_lbl)
             _show_plotly_fig(fig, note_label="directed network")
 
-    # SVG export (optional)
+# SVG export (robust)
     try:
-        import kaleido  # confirm it's importable
+        # Ensure kaleido is importable (required for Plotly static image export)
+        import kaleido  # noqa: F401
+
         svg_bytes = to_image(fig, format="svg")
         st.download_button(
             "⬇️ Download network as SVG",
             data=svg_bytes,
             file_name=f"network_{resp}_{fact}_{adj}.svg",
-            mime="image/svg+xml"
+            mime="image/svg+xml",
+        )
+    except ModuleNotFoundError:
+        # Kaleido not installed in the runtime
+        st.warning("SVG export unavailable: 'kaleido' is not installed at runtime.")
+        st.info("Tip: add `kaleido>=0.2` to requirements.txt and redeploy, "
+                "or use the HTML download below.")
+        # Fallback: interactive HTML export (no kaleido needed)
+        html_bytes = fig.to_html(include_plotlyjs="cdn").encode("utf-8")
+        st.download_button(
+            "⬇️ Download network as HTML (interactive)",
+            data=html_bytes,
+            file_name=f"network_{resp}_{fact}_{adj}.html",
+            mime="text/html",
         )
     except Exception as e:
-        st.warning(f"SVG export unavailable: {e}")
-        st.info("💡 On Streamlit Cloud, sometimes kaleido fails silently. "
-                "Reboot the app, or download the DOT file and convert to SVG locally.")
-
+        # Kaleido present but render failed (common on some sandboxes)
+        st.warning(f"SVG export failed: {e}")
+        st.info("Try rebooting the app on Streamlit Cloud, "
+                "or use the HTML download below.")
+        # Fallback: interactive HTML export
+        html_bytes = fig.to_html(include_plotlyjs="cdn").encode("utf-8")
+        st.download_button(
+            "⬇️ Download network as HTML (interactive)",
+            data=html_bytes,
+            file_name=f"network_{resp}_{fact}_{adj}.html",
+            mime="text/html",
+        )
         # DOT export (matches the same filtered edges)
         dot_src = make_dot_directed(sub_net, edge_alpha)
         st.download_button(
@@ -679,5 +702,6 @@ if draw_net:
 
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
+
 
 
