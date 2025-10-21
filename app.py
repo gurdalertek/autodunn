@@ -469,18 +469,22 @@ def hierarchical_layout_barycentric(DG, direction="LR", layer_gap=1.2, node_gap=
             pri = li * layer_gap
             pos[n] = (pri, sec) if direction == "LR" else (sec, pri)
 
-    # normalize to a pleasant range
+    # normalize to a pleasant range (NumPy 2.x–compatible)
     xs = np.array([p[0] for p in pos.values()], float)
     ys = np.array([p[1] for p in pos.values()], float)
-    if xs.ptp() > 0:
-        xs = (xs - xs.mean()) / (xs.ptp() / 2)
-    if ys.ptp() > 0:
-        ys = (ys - ys.mean()) / (ys.ptp() / 2)
+
+    xs_range = np.ptp(xs)  # instead of xs.ptp()
+    ys_range = np.ptp(ys)  # instead of ys.ptp()
+
+    if xs_range > 0:
+        xs = (xs - xs.mean()) / (xs_range / 2)
+    if ys_range > 0:
+        ys = (ys - ys.mean()) / (ys_range / 2)
+
     for (node, _), x, y in zip(pos.items(), xs, ys):
         pos[node] = (float(x), float(y))
 
     return pos
-
 
 
 def build_directed_network_figure(sub_df, alpha, direction="LR", show_labels=True):
@@ -672,3 +676,4 @@ if draw_net:
 
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
+
