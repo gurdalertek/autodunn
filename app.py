@@ -653,17 +653,20 @@ if draw_net:
             fig = build_directed_network_figure(sub_net, edge_alpha, direction=orient, show_labels=show_lbl)
             _show_plotly_fig(fig, note_label="directed network")
 
-        # SVG export
-        try:
-            svg_bytes = to_image(fig, format="svg")
-            st.download_button(
-                "⬇️ Download network as SVG",
-                data=svg_bytes,
-                file_name=f"network_{resp}_{fact}_{adj}.svg",
-                mime="image/svg+xml"
-            )
-        except Exception:
-            st.info("SVG export needs the 'kaleido' package: `pip install kaleido`")
+    # SVG export (optional)
+    try:
+        import kaleido  # confirm it's importable
+        svg_bytes = to_image(fig, format="svg")
+        st.download_button(
+            "⬇️ Download network as SVG",
+            data=svg_bytes,
+            file_name=f"network_{resp}_{fact}_{adj}.svg",
+            mime="image/svg+xml"
+        )
+    except Exception as e:
+        st.warning(f"SVG export unavailable: {e}")
+        st.info("💡 On Streamlit Cloud, sometimes kaleido fails silently. "
+                "Reboot the app, or download the DOT file and convert to SVG locally.")
 
         # DOT export (matches the same filtered edges)
         dot_src = make_dot_directed(sub_net, edge_alpha)
@@ -676,4 +679,5 @@ if draw_net:
 
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
+
 
