@@ -1021,8 +1021,11 @@ def _build_diffogram_from_dunn(sub_df, means_map, alpha_display, show_ticks=True
                 textfont=dict(size=11, color="#444"), hoverinfo="skip", showlegend=False
             ))
             fig.add_trace(go.Scatter(
-                x=[lo], y=[m], mode="text", text=[str(g)], textposition="middle left",
-                textfont=dict(size=11, color="#444"), hoverinfo="skip", showlegend=False
+                x=[lo], y=[m], mode="text", text=[str(g)],
+                textposition="middle left",
+                textfont=dict(size=11, color="#444"),
+                hoverinfo="skip", showlegend=False,
+                textangle=-90  # rotate vertical tick labels
             ))
 
     # draw segments: color by significance under current α (a_sig)
@@ -1121,4 +1124,5 @@ if draw_diff:
         st.error(f"Diffogram error: {e}")
 
 st.caption("💡 Reference for interpreting the diffogram: https://blogs.sas.com/content/iml/2017/10/18/diffogram-multiple-comparisons-sas.html")
+
 
