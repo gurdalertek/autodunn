@@ -705,15 +705,204 @@ if draw_net:
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
 
+# ---------------- Arc Diagram (Community) — node-colored arcs, no fill ----------------
+st.markdown("---")
+st.header("Arc Diagram (Node-colored arcs) — overrides the directed network")
 
+with st.form("arc_comm_form", clear_on_submit=False):
+    colA1, colA2, colA3, colA4 = st.columns([1,1,1,1])
+    arc_alpha = colA1.number_input(
+        "Arc α (keep pairs with p_adj < α)",
+        min_value=0.0001, max_value=0.5, value=float(a_sig) if 'a_sig' in globals() else 0.05,
+        step=0.01, format="%.4f"
+    )
+    curve_scale = colA2.slider("Arc curvature", min_value=0.2, max_value=2.0, value=1.0, step=0.1)
+    show_node_labels = colA3.checkbox("Show node labels", value=True)
+    use_sig_width = colA4.checkbox("Thicker arcs for stronger significance", value=True)
+    draw_arc = st.form_submit_button("Draw Arc Diagram")
 
+def _safe_float(x, default=np.nan):
+    try:
+        return float(x)
+    except Exception:
+        return default
 
+def _build_sig_edges_for_arc(sub_df: pd.DataFrame, alpha_thr: float):
+    """
+    Expects Dunn-style rows with: group_i, group_j, p_adj, mean_i, mean_j.
+    Keeps significant directional pairs mean_i > mean_j.
+    Returns: nodes_sorted (by mean desc), edges [(u,v,p)], means {node:mean}.
+    """
+    if sub_df is None or sub_df.empty:
+        return [], [], {}
 
+    df = sub_df.copy()
+    for c in ["p_adj", "mean_i", "mean_j"]:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
 
+    mask = (df["p_adj"] < alpha_thr) & (df["mean_i"] > df["mean_j"])
+    s = df.loc[mask].dropna(subset=["group_i", "group_j", "p_adj", "mean_i", "mean_j"]).copy()
 
+    # Mean per node (average if appears multiple times)
+    means_acc, counts = {}, {}
+    for _, r in s.iterrows():
+        gi, gj = str(r["group_i"]), str(r["group_j"])
+        mi, mj = _safe_float(r["mean_i"]), _safe_float(r["mean_j"])
+        if not np.isnan(mi):
+            means_acc[gi] = means_acc.get(gi, 0.0) + mi
+            counts[gi] = counts.get(gi, 0) + 1
+        if not np.isnan(mj):
+            means_acc[gj] = means_acc.get(gj, 0.0) + mj
+            counts[gj] = counts.get(gj, 0) + 1
+    means = {n: means_acc[n] / counts[n] for n in means_acc.keys()}
 
+    # Fallback to include nodes (even if no surviving edges)
+    if s.empty and "group_i" in df.columns and "group_j" in df.columns:
+        for _, r in df.dropna(subset=["group_i"]).iterrows():
+            means.setdefault(str(r["group_i"]), np.nan)
+        for _, r in df.dropna(subset=["group_j"]).iterrows():
+            means.setdefault(str(r["group_j"]), np.nan)
 
+    nodes_sorted = sorted(
+        means.keys(),
+        key=lambda n: (np.isnan(means[n]), -means[n] if not np.isnan(means[n]) else 0, n)
+    )
 
+    # Unique edges (u,v)
+    seen, edges = set(), []
+    for _, r in s.iterrows():
+        u, v = str(r["group_i"]), str(r["group_j"])
+        p = _safe_float(r["p_adj"])
+        if (u, v) not in seen:
+            seen.add((u, v))
+            edges.append((u, v, p))
+    return nodes_sorted, edges, means
 
+def _arc_points(x0, x1, height):
+    import numpy as _np
+    if x1 < x0:
+        x0, x1 = x1, x0
+    t = _np.linspace(0.0, 1.0, 40)
+    xs = x0 + (x1 - x0) * t
+    ys = height * np.sin(np.pi * t)
+    return xs, ys
+
+def _make_arc_figure(nodes_sorted, edges, means, curve_scale=1.0, show_labels=True, use_sig_width=True):
+    import plotly.graph_objects as go
+    import plotly.express as px
+
+    x_pos = {n: i for i, n in enumerate(nodes_sorted)}
+    baseline_y = 0.0
+
+    # Outgoing degree per node
+    outdeg = {n: 0 for n in nodes_sorted}
+    for (u, _v, _p) in edges:
+        if u in outdeg:
+            outdeg[u] += 1
+
+    # Color policy:
+    # - Nodes with outdeg>0: assign unique color from a qualitative palette.
+    # - Nodes with outdeg==0: gray.
+    palette = px.colors.qualitative.Plotly  # uses default Plotly qualitative set
+    active_nodes = [n for n in nodes_sorted if outdeg.get(n, 0) > 0]
+    color_map_active = {n: palette[i % len(palette)] for i, n in enumerate(active_nodes)}
+    GRAY = "#A0A0A0"
+    node_line_color = {n: (color_map_active[n] if outdeg.get(n, 0) > 0 else GRAY) for n in nodes_sorted}
+
+    # Node trace — no fill, outline only
+    node_x = [x_pos[n] for n in nodes_sorted]
+    node_y = [baseline_y] * len(nodes_sorted)
+    node_text = [f"{n} ({means.get(n, float('nan')):.3g})" for n in nodes_sorted]
+
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode="markers+text" if show_labels else "markers",
+        text=nodes_sorted if show_labels else None,
+        textposition="top center",
+        marker=dict(
+            size=12,
+            color="rgba(0,0,0,0)",           # transparent fill
+            line=dict(
+                width=2,
+                color=[node_line_color[n] for n in nodes_sorted]  # outline colored per policy
+            )
+        ),
+        hovertext=node_text,
+        hoverinfo="text",
+        name="nodes"
+    )
+
+    # Edge widths
+    if use_sig_width and len(edges) > 0:
+        widths = []
+        for (_u, _v, p) in edges:
+            if p is None or p <= 0:
+                widths.append(6.0)
+            else:
+                widths.append(float(np.clip(-np.log10(p), 1.0, 6.0)))
+    else:
+        widths = [1.5] * len(edges)
+
+    # Edge arcs — colored by source node line color
+    edge_traces = []
+    for k, (u, v, p) in enumerate(edges):
+        xi, xj = x_pos.get(u), x_pos.get(v)
+        if xi is None or xj is None or xi == xj:
+            continue
+        span = abs(xj - xi)
+        xs, ys = _arc_points(xi, xj, height=curve_scale * 0.3 * max(1, span))
+        edge_traces.append(
+            go.Scatter(
+                x=xs, y=ys, mode="lines",
+                line=dict(width=widths[k], color=node_line_color.get(u, GRAY)),
+                hoverinfo="text",
+                text=[f"{u} → {v}<br>p_adj={p:.4g}" if p is not None else f"{u} → {v}"] * len(xs),
+                name=f"{u}→{v}"
+            )
+        )
+
+    fig = go.Figure(edge_traces + [node_trace])
+    fig.update_layout(
+        height=480,
+        margin=dict(l=40, r=20, t=40, b=60),
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        title=f"Arc Diagram — α={arc_alpha:g}"
+    )
+    return fig
+
+def _to_dot(nodes_sorted, edges):
+    lines = ["digraph G {", '  rankdir=LR;']
+    lines += [f'  "{n}" [shape=ellipse];' for n in nodes_sorted]
+    for u, v, _p in edges:
+        lines.append(f'  "{u}" -> "{v}";')
+    lines.append("}")
+    return "\n".join(lines)
+
+if draw_arc:
+    try:
+        nodes_sorted, edges, means = _build_sig_edges_for_arc(sub, arc_alpha)
+        if len(nodes_sorted) == 0:
+            st.info("No nodes to draw for the selected α.")
+        else:
+            fig_arc = _make_arc_figure(
+                nodes_sorted, edges, means,
+                curve_scale=curve_scale,
+                show_labels=show_node_labels,
+                use_sig_width=use_sig_width
+            )
+            _show_plotly_fig(fig_arc, note_label="Arc Diagram")
+
+            dot_text = _to_dot(nodes_sorted, edges)
+            st.download_button(
+                "⬇️ Download DOT for Arc Diagram",
+                data=dot_text.encode("utf-8"),
+                file_name="arc_diagram_comm.dot",
+                mime="text/vnd.graphviz"
+            )
+            st.caption("Nodes: outline only (no fill). Nodes without outgoing arcs are gray; each source colors its own arcs.")
+    except Exception as e:
+        st.error(f"Arc diagram error: {e}")
 
 
