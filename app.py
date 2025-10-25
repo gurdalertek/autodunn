@@ -32,7 +32,7 @@ st.set_page_config(page_title="Kruskal–Wallis & Dunn", layout="wide")
 st.title("Kruskal–Wallis & Dunn — End-to-End Analysis")
 
 st.caption("💡 Developed by Dr. Gurdal Ertek, source code under https://github.com/gurdalertek/autodunn")
-st.caption("💡 The app runs best when there are 2-10 distinct values for the categorical factor, with at least 10 observations for each value. Consider reducing the number of distinct values by combining values with few observations under the value 'Other' ")
+st.caption("💡 The app runs best when there are 2-20 distinct group label values for the categorical factor, with at least 10 observations for each value. If you have more distinct values, consider reducing the number of distinct values by combining values with few observations under the group label 'Other' ")
 st.caption("💡 You can visualize the exported `.dot` or `.svg` graph/network files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
 
 st.markdown("""
@@ -705,6 +705,8 @@ if draw_net:
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
 
+
+
 # ---------------- Arc Diagram (Community) — node-colored arcs, no fill ----------------
 st.markdown("---")
 st.header("Arc Diagram (Node-colored arcs) — overrides the directed network")
@@ -718,7 +720,7 @@ with st.form("arc_comm_form", clear_on_submit=False):
     )
     curve_scale = colA2.slider("Arc curvature", min_value=0.2, max_value=2.0, value=1.0, step=0.1)
     show_node_labels = colA3.checkbox("Show node labels", value=True)
-    use_sig_width = colA4.checkbox("Thicker arcs for stronger significance", value=True)
+    use_sig_width = colA4.checkbox("Thicker arcs for stronger significance", value=False)
     draw_arc = st.form_submit_button("Draw Arc Diagram")
 
 def _safe_float(x, default=np.nan):
@@ -817,9 +819,7 @@ def _make_arc_figure(nodes_sorted, edges, means, curve_scale=1.0, show_labels=Tr
 
     node_trace = go.Scatter(
         x=node_x, y=node_y,
-        mode="markers+text" if show_labels else "markers",
-        text=nodes_sorted if show_labels else None,
-        textposition="top center",
+        mode="markers",  # text handled via annotations for rotation
         marker=dict(
             size=12,
             color="rgba(0,0,0,0)",           # transparent fill
@@ -863,6 +863,21 @@ def _make_arc_figure(nodes_sorted, edges, means, curve_scale=1.0, show_labels=Tr
         )
 
     fig = go.Figure(edge_traces + [node_trace])
+    
+    # Rotated node labels as annotations (works on all Plotly versions)
+    if show_labels:
+        for n in nodes_sorted:
+            fig.add_annotation(
+                x=x_pos[n],
+                y=baseline_y,
+                text=n,
+                showarrow=False,
+                xanchor="center",
+                yanchor="bottom",
+                textangle=-45,   # rotation like violin plot x-labels
+                yshift=10        # little lift above the node marker
+            )    
+    
     fig.update_layout(
         height=480,
         margin=dict(l=40, r=20, t=40, b=60),
@@ -905,4 +920,203 @@ if draw_arc:
     except Exception as e:
         st.error(f"Arc diagram error: {e}")
 
+st.caption("💡 Reference for interpreting the arc diagram: https://doi.org/10.1109/aiccsa47632.2019.9035354")
 
+
+# ---------------- Diffogram (Dunn-based; uses existing results only) ----------------
+st.markdown("---")
+st.header("Diffogram — From Dunn Results (uses current Adjustment & α)")
+
+with st.form("diffogram_dunn_form", clear_on_submit=False):
+    c1, c2 = st.columns([1,1])
+    show_ticks = c1.checkbox("Show mean reference ticks/lines", value=True)
+    only_sig   = c2.checkbox("Draw only significant pairs", value=False)  # NEW
+    draw_diff  = st.form_submit_button("Draw Diffogram")
+
+def _pairs_from_dunn(sub_df: pd.DataFrame, means_map: pd.Series) -> list:
+    """
+    Build unordered pairs (i,j) with:
+      - mi, mj from means_map
+      - p = min p_adj for (i,j) and (j,i) from Dunn table
+    Returns list of dicts: {'i','j','mi','mj','p'}
+    """
+    if sub_df is None or sub_df.empty:
+        return []
+
+    s = sub_df.copy()
+    s["group_i"] = s["group_i"].astype(str)
+    s["group_j"] = s["group_j"].astype(str)
+    s["p_adj"]   = pd.to_numeric(s["p_adj"], errors="coerce")
+
+    # make symmetric min p for each unordered pair
+    s["a"] = np.where(s["group_i"] < s["group_j"], s["group_i"], s["group_j"])
+    s["b"] = np.where(s["group_i"] < s["group_j"], s["group_j"], s["group_i"])
+    sym = (s.groupby(["a","b"], as_index=False)["p_adj"].min()
+             .rename(columns={"a":"i","b":"j","p_adj":"p"}))
+
+    rows = []
+    for _, r in sym.iterrows():
+        i, j = str(r["i"]), str(r["j"])
+        mi = float(pd.to_numeric(means_map.get(i), errors="coerce"))
+        mj = float(pd.to_numeric(means_map.get(j), errors="coerce"))
+        if np.isnan(mi) or np.isnan(mj):
+            continue
+        p  = float(pd.to_numeric(r["p"], errors="coerce"))
+        rows.append(dict(i=i, j=j, mi=mi, mj=mj, p=p))
+    return rows
+
+def _segment_endpoints(mi, mj, ensure_no_cross: bool):
+    """
+    Build a short segment with slope -1 centered at (mi, mj).
+    Crossing rule for y=x:
+      crosses iff |mi - mj| <= M
+    We set M just below/above |d| to guarantee cross/no-cross behavior.
+    """
+    d = abs(mi - mj)
+    eps = max(1e-12, 1e-3 * (1.0 + d))  # small numeric cushion
+    if ensure_no_cross:
+        M = max(1e-6, d - eps)           # so |d| > M  ⇒ no cross (significant)
+    else:
+        M = d + eps                      # so |d| <= M ⇒ cross (not significant)
+    dx = M / np.sqrt(2.0)
+    x0, y0 = mi - dx, mj + dx
+    x1, y1 = mi + dx, mj - dx
+    return (x0, y0, x1, y1), M
+
+def _build_diffogram_from_dunn(sub_df, means_map, alpha_display, show_ticks=True, only_sig=False):
+    import plotly.graph_objects as go
+
+    pairs = _pairs_from_dunn(sub_df, means_map)
+    if not pairs:
+        return go.Figure().update_layout(
+            title="Diffogram (no pairs found for current selection)",
+            xaxis=dict(visible=False), yaxis=dict(visible=False)
+        )
+
+    # collect all means to set axes and optional guides
+    all_means = np.array(list({*(m for m in means_map.dropna().astype(float).values)}), float)
+    mn, mx = float(np.min(all_means)), float(np.max(all_means))
+    pad = 0.05 * (mx - mn if mx > mn else 1.0)
+    lo, hi = mn - pad, mx + pad
+
+    fig = go.Figure()
+
+    # diagonal y=x
+    fig.add_trace(go.Scatter(
+        x=[lo, hi], y=[lo, hi], mode="lines",
+        line=dict(width=1.5, dash="dash", color="#555"),
+        hoverinfo="skip", name="y = x (equal means)"
+    ))
+
+    # optional reference guides at each group mean
+    if show_ticks:
+        for g, m in sorted(means_map.dropna().items(), key=lambda kv: kv[1]):
+            m = float(m)
+            fig.add_shape(type="line", x0=m, x1=m, y0=lo, y1=hi,
+                          line=dict(color="rgba(120,120,120,0.25)", width=1))
+            fig.add_shape(type="line", x0=lo, x1=hi, y0=m, y1=m,
+                          line=dict(color="rgba(120,120,120,0.25)", width=1))
+            fig.add_trace(go.Scatter(
+                x=[m], y=[lo], mode="text", text=[str(g)], textposition="bottom center",
+                textfont=dict(size=11, color="#444"), hoverinfo="skip", showlegend=False
+            ))
+            fig.add_trace(go.Scatter(
+                x=[lo], y=[m], mode="text", text=[str(g)], textposition="middle left",
+                textfont=dict(size=11, color="#444"), hoverinfo="skip", showlegend=False
+            ))
+
+    # draw segments: color by significance under current α (a_sig)
+    sig_color  = "#2A9D8F"   # teal-green
+    nsig_color = "#A0A0A0"   # gray
+    sig_traces, nsig_traces = [], []
+
+    for row in pairs:
+        i, j, mi, mj, p = row["i"], row["j"], row["mi"], row["mj"], row["p"]
+        significant = (p < float(alpha_display))
+        if only_sig and not significant:
+            continue
+
+        (x0, y0, x1, y1), _M = _segment_endpoints(mi, mj, ensure_no_cross=significant)
+        txt = f"{i} vs {j}: diff={mi-mj:.4g} • p_adj={p:.4g} • {'✔ significant' if significant else '✖ not significant'}"
+        color = sig_color if significant else nsig_color
+        trace = go.Scatter(
+            x=[x0, x1], y=[y0, y1], mode="lines",
+            line=dict(width=3, color=color),
+            hoverinfo="text", text=[txt, txt],
+            name="Significant" if significant else "Not Significant",
+            showlegend=True
+        )
+        (sig_traces if significant else nsig_traces).append(trace)
+
+    # Add legend entries once (skip gray legend when only significant pairs are shown)
+    if nsig_traces and not only_sig:
+        fig.add_trace(nsig_traces[0])
+        for tr in nsig_traces[1:]:
+            tr.showlegend = False
+            fig.add_trace(tr)
+    if sig_traces:
+        fig.add_trace(sig_traces[0])
+        for tr in sig_traces[1:]:
+            tr.showlegend = False
+            fig.add_trace(tr)
+
+    # mean–mean centers (optional faint points)
+    centers_x, centers_y, centers_txt = [], [], []
+    for row in pairs:
+        i, j, mi, mj = row["i"], row["j"], row["mi"], row["mj"]
+        centers_x.append(mi); centers_y.append(mj)
+        centers_txt.append(f"({i},{j}) = ({mi:.4g},{mj:.4g})")
+    fig.add_trace(go.Scatter(
+        x=centers_x, y=centers_y, mode="markers",
+        marker=dict(size=4, color="rgba(30,30,30,0.35)"),
+        hovertext=centers_txt, hoverinfo="text", showlegend=False
+    ))
+
+    # Set square layout (height = width)
+    fig.update_layout(
+        autosize=False,
+        width=700,
+        height=700,
+        margin=dict(l=40, r=20, t=60, b=70),
+        xaxis=dict(title=f"{resp} mean for {fact} (x-axis group)", range=[lo, hi], zeroline=False),
+        yaxis=dict(title=f"{resp} mean for {fact} (y-axis group)", range=[lo, hi], zeroline=False),
+        title=f"Diffogram — Dunn ({adj}) @ α={float(a_sig):g}  (rule: segment crosses y=x ⇒ NOT significant)",
+        legend=dict(
+            title="Line color meaning:",
+            orientation="h",
+            yanchor="bottom",
+            y=-0.25,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="rgba(180,180,180,0.5)",
+            borderwidth=1
+        )
+    )
+    fig.update_yaxes(scaleanchor="x", scaleratio=1)
+    return fig
+
+if draw_diff:
+    try:
+        # Use the SAME selection (resp, fact, adj) and a_sig already defined above.
+        fig_diff = _build_diffogram_from_dunn(
+            sub_df=sub,                # current Dunn results slice
+            means_map=means_map,       # already computed group means (from your app)
+            alpha_display=a_sig,
+            show_ticks=show_ticks,
+            only_sig=only_sig          # NEW
+        )
+        _show_plotly_fig(fig_diff, note_label="diffogram (Dunn)")
+
+        # Download (interactive HTML)
+        html_bytes = fig_diff.to_html(include_plotlyjs="cdn", full_html=True).encode("utf-8")
+        st.download_button(
+            "⬇️ Download Diffogram (Dunn) as HTML",
+            data=html_bytes,
+            file_name=f"diffogram_dunn_{resp}_{fact}_{adj}.html",
+            mime="text/html",
+        )
+    except Exception as e:
+        st.error(f"Diffogram error: {e}")
+
+st.caption("💡 Reference for interpreting the diffogram: https://blogs.sas.com/content/iml/2017/10/18/diffogram-multiple-comparisons-sas.html")
