@@ -308,6 +308,7 @@ if submitted_bv:
 
             # --- Violin plot ---
             fig1, ax1 = plt.subplots(figsize=(10, 5))
+  
             sns.violinplot(
                 data=df,
                 x=fact_col,
@@ -315,7 +316,7 @@ if submitted_bv:
                 order=order,
                 inner="box",
                 ax=ax1,
-                palette=["#1E3A8A", "#FDBA74"]  # dark blue, light orange
+                color="#FDBA74"   # light orange for all violins
             )
             ax1.set_title(f"Violin: {resp_col} ~ {fact_col}")
             ax1.tick_params(axis="x", rotation=45)
@@ -329,7 +330,7 @@ if submitted_bv:
                 y=resp_col,
                 order=order,
                 ax=ax2,
-                palette=["#1E3A8A", "#FDBA74"]  # dark blue, light orange
+                color="#FDBA74"   # light orange for all boxes
             )
             ax2.set_title(f"Box: {resp_col} ~ {fact_col}")
             ax2.tick_params(axis="x", rotation=45)
@@ -702,6 +703,7 @@ if draw_net:
 
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
+
 
 
 
