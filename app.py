@@ -304,17 +304,24 @@ if submitted_bv:
             elif order_by == "mean":
                 order = df.groupby(fact_col)[resp_col].mean().sort_values().index.tolist()
 
-            fig1, ax1 = plt.subplots(figsize=(10,5))
-            sns.violinplot(data=df, x=fact_col, y=resp_col, order=order, inner="box", ax=ax1)
+           fig1, ax1 = plt.subplots(figsize=(10,5))
+            sns.violinplot(
+                data=df, x=fact_col, y=resp_col, order=order, inner="box", ax=ax1,
+                palette=["#1E3A8A", "#FDBA74"]  # dark blue, light orange
+            )
             ax1.set_title(f"Violin: {resp_col} ~ {fact_col}")
             ax1.tick_params(axis="x", rotation=45)
             st.pyplot(fig1, clear_figure=True)
-
+            
             fig2, ax2 = plt.subplots(figsize=(10,5))
-            sns.boxplot(data=df, x=fact_col, y=resp_col, order=order, ax=ax2)
+            sns.boxplot(
+                data=df, x=fact_col, y=resp_col, order=order, ax=ax2,
+                palette=["#1E3A8A", "#FDBA74"]  # dark blue, light orange
+            )
             ax2.set_title(f"Box: {resp_col} ~ {fact_col}")
             ax2.tick_params(axis="x", rotation=45)
             st.pyplot(fig2, clear_figure=True)
+
     except Exception as e:
         st.error(f"Plot error: {e}")
 
@@ -682,6 +689,7 @@ if draw_net:
 
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
+
 
 
 
