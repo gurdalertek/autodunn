@@ -662,16 +662,7 @@ if draw_net:
             mime="text/html",
         )
 
-        # DOT export (matches the same filtered edges)
-        dot_src = make_dot_directed(sub_net, edge_alpha)
-            if "make_dot_directed" in globals() else make_dot_directed(sub_net, edge_alpha)
-        st.download_button(
-            "⬇️ Download network as DOT",
-            data=dot_src.encode("utf-8"),
-            file_name=f"network_{resp}_{fact}_{adj}.dot",
-            mime="text/vnd.graphviz",
-        )
-        
+
     # DOT export (matches the same filtered edges)
     if "make_dot_directed" in globals():
         dot_src = make_dot_directed(sub_net, edge_alpha)
@@ -688,6 +679,7 @@ if draw_net:
 
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
+
 
 
 
