@@ -930,7 +930,7 @@ st.header("Diffogram — From Dunn Results (uses current Adjustment & α)")
 with st.form("diffogram_dunn_form", clear_on_submit=False):
     c1, c2 = st.columns([1,1])
     show_ticks = c1.checkbox("Show mean reference ticks/lines", value=True)
-    only_sig   = c2.checkbox("Draw only significant pairs", value=False)  # NEW
+    only_sig   = c2.checkbox("Draw only significant pairs", value=False)  # remains unchecked by default
     draw_diff  = st.form_submit_button("Draw Diffogram")
 
 def _pairs_from_dunn(sub_df: pd.DataFrame, means_map: pd.Series) -> list:
@@ -1008,37 +1008,36 @@ def _build_diffogram_from_dunn(sub_df, means_map, alpha_display, show_ticks=True
         hoverinfo="skip", name="y = x (equal means)"
     ))
 
-# optional reference guides at each group mean
-# optional reference guides at each group mean (labels via annotations to allow rotation safely)
-if show_ticks:
-    for g, m in sorted(means_map.dropna().items(), key=lambda kv: kv[1]):
-        m = float(m)
-        # guide lines
-        fig.add_shape(type="line", x0=m, x1=m, y0=lo, y1=hi,
-                      line=dict(color="rgba(120,120,120,0.25)", width=1))
-        fig.add_shape(type="line", x0=lo, x1=hi, y0=m, y1=m,
-                      line=dict(color="rgba(120,120,120,0.25)", width=1))
+    # optional reference guides at each group mean (labels via annotations to allow rotation safely)
+    if show_ticks:
+        for g, m in sorted(means_map.dropna().items(), key=lambda kv: kv[1]):
+            m = float(m)
+            # guide lines
+            fig.add_shape(type="line", x0=m, x1=m, y0=lo, y1=hi,
+                          line=dict(color="rgba(120,120,120,0.25)", width=1))
+            fig.add_shape(type="line", x0=lo, x1=hi, y0=m, y1=m,
+                          line=dict(color="rgba(120,120,120,0.25)", width=1))
 
-        # x-axis label (bottom) — horizontal
-        fig.add_annotation(
-            x=m, y=lo,
-            text=str(g),
-            showarrow=False,
-            xanchor="center", yanchor="top",
-            font=dict(size=11, color="#444"),
-            yshift=-6  # nudge below the axis
-        )
+            # x-axis label (bottom) — horizontal
+            fig.add_annotation(
+                x=m, y=lo,
+                text=str(g),
+                showarrow=False,
+                xanchor="center", yanchor="top",
+                font=dict(size=11, color="#444"),
+                yshift=-6  # nudge below the axis
+            )
 
-        # y-axis label (left) — vertical
-        fig.add_annotation(
-            x=lo, y=m,
-            text=str(g),
-            showarrow=False,
-            xanchor="right", yanchor="middle",
-            textangle=-90,                   # rotate safely via annotation
-            font=dict(size=11, color="#444"),
-            xshift=-6                        # nudge left of the axis
-        )
+            # y-axis label (left) — vertical (rotated)
+            fig.add_annotation(
+                x=lo, y=m,
+                text=str(g),
+                showarrow=False,
+                xanchor="right", yanchor="middle",
+                textangle=-90,                   # rotate safely via annotation
+                font=dict(size=11, color="#444"),
+                xshift=-6                        # nudge left of the axis
+            )
 
     # draw segments: color by significance under current α (a_sig)
     sig_color  = "#2A9D8F"   # teal-green
@@ -1087,12 +1086,12 @@ if show_ticks:
         hovertext=centers_txt, hoverinfo="text", showlegend=False
     ))
 
-    # Set square layout (height = width)
+    # Layout (tall figure per your earlier request; adjust width/height as you like)
     fig.update_layout(
-    autosize=False,
-    width=700,
-    height=1400,  # roughly twice as tall
-    margin=dict(l=40, r=20, t=60, b=70),
+        autosize=False,
+        width=700,
+        height=1400,  # roughly twice as high as width; set 700 if you want square
+        margin=dict(l=40, r=20, t=60, b=70),
         xaxis=dict(title=f"{resp} mean for {fact} (x-axis group)", range=[lo, hi], zeroline=False),
         yaxis=dict(title=f"{resp} mean for {fact} (y-axis group)", range=[lo, hi], zeroline=False),
         title=f"Diffogram — Dunn ({adj}) @ α={float(a_sig):g}  (rule: segment crosses y=x ⇒ NOT significant)",
@@ -1134,7 +1133,9 @@ if draw_diff:
     except Exception as e:
         st.error(f"Diffogram error: {e}")
 
+
 st.caption("💡 Reference for interpreting the diffogram: https://blogs.sas.com/content/iml/2017/10/18/diffogram-multiple-comparisons-sas.html")
+
 
 
 
