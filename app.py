@@ -32,7 +32,7 @@ st.set_page_config(page_title="Kruskal–Wallis & Dunn", layout="wide")
 st.title("Kruskal–Wallis & Dunn — End-to-End Analysis")
 
 st.caption("💡 Developed by Dr. Gurdal Ertek, source code under https://github.com/gurdalertek/autodunn")
-st.caption("💡 The app runs best when there are 2-10 distinct values for the categorical factor. Consider reducing the number of distinct values by combining values with few observations under the value 'Other' ")
+st.caption("💡 The app runs best when there are 2-10 distinct values for the categorical factor, with at least 10 observations for each value. Consider reducing the number of distinct values by combining values with few observations under the value 'Other' ")
 st.caption("💡 You can visualize the exported `.dot` or `.svg` graph/network files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
 
 st.markdown("""
@@ -704,6 +704,7 @@ if draw_net:
 
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
+
 
 
 
