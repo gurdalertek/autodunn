@@ -1023,6 +1023,7 @@ def _build_diffogram_from_dunn(sub_df, means_map, alpha_display, show_ticks=True
                 x=m, y=lo,
                 text=str(g),
                 showarrow=False,
+                textangle=-90,                   # rotate safely via annotation
                 xanchor="center", yanchor="top",
                 font=dict(size=11, color="#444"),
                 yshift=-6  # nudge below the axis
@@ -1034,7 +1035,6 @@ def _build_diffogram_from_dunn(sub_df, means_map, alpha_display, show_ticks=True
                 text=str(g),
                 showarrow=False,
                 xanchor="right", yanchor="middle",
-                textangle=-90,                   # rotate safely via annotation
                 font=dict(size=11, color="#444"),
                 xshift=-6                        # nudge left of the axis
             )
@@ -1135,6 +1135,7 @@ if draw_diff:
 
 
 st.caption("💡 Reference for interpreting the diffogram: https://blogs.sas.com/content/iml/2017/10/18/diffogram-multiple-comparisons-sas.html")
+
 
 
 
