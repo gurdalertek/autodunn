@@ -1009,24 +1009,36 @@ def _build_diffogram_from_dunn(sub_df, means_map, alpha_display, show_ticks=True
     ))
 
     # optional reference guides at each group mean
-    if show_ticks:
-        for g, m in sorted(means_map.dropna().items(), key=lambda kv: kv[1]):
-            m = float(m)
-            fig.add_shape(type="line", x0=m, x1=m, y0=lo, y1=hi,
-                          line=dict(color="rgba(120,120,120,0.25)", width=1))
-            fig.add_shape(type="line", x0=lo, x1=hi, y0=m, y1=m,
-                          line=dict(color="rgba(120,120,120,0.25)", width=1))
-            fig.add_trace(go.Scatter(
-                x=[m], y=[lo], mode="text", text=[str(g)], textposition="bottom center",
-                textfont=dict(size=11, color="#444"), hoverinfo="skip", showlegend=False
-            ))
-            fig.add_trace(go.Scatter(
-                x=[lo], y=[m], mode="text", text=[str(g)],
-                textposition="middle left",
-                textfont=dict(size=11, color="#444"),
-                hoverinfo="skip", showlegend=False,
-                textangle=-90  # rotate vertical tick labels
-            ))
+# optional reference guides at each group mean (labels via annotations to allow rotation safely)
+if show_ticks:
+    for g, m in sorted(means_map.dropna().items(), key=lambda kv: kv[1]):
+        m = float(m)
+        # guide lines
+        fig.add_shape(type="line", x0=m, x1=m, y0=lo, y1=hi,
+                      line=dict(color="rgba(120,120,120,0.25)", width=1))
+        fig.add_shape(type="line", x0=lo, x1=hi, y0=m, y1=m,
+                      line=dict(color="rgba(120,120,120,0.25)", width=1))
+
+        # x-axis label (bottom) — horizontal
+        fig.add_annotation(
+            x=m, y=lo,
+            text=str(g),
+            showarrow=False,
+            xanchor="center", yanchor="top",
+            font=dict(size=11, color="#444"),
+            yshift=-6  # nudge below the axis
+        )
+
+        # y-axis label (left) — vertical
+        fig.add_annotation(
+            x=lo, y=m,
+            text=str(g),
+            showarrow=False,
+            xanchor="right", yanchor="middle",
+            textangle=-90,                   # rotate safely via annotation
+            font=dict(size=11, color="#444"),
+            xshift=-6                        # nudge left of the axis
+        )
 
     # draw segments: color by significance under current α (a_sig)
     sig_color  = "#2A9D8F"   # teal-green
@@ -1124,5 +1136,6 @@ if draw_diff:
         st.error(f"Diffogram error: {e}")
 
 st.caption("💡 Reference for interpreting the diffogram: https://blogs.sas.com/content/iml/2017/10/18/diffogram-multiple-comparisons-sas.html")
+
 
 
