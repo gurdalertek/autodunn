@@ -1008,7 +1008,7 @@ def _build_diffogram_from_dunn(sub_df, means_map, alpha_display, show_ticks=True
         hoverinfo="skip", name="y = x (equal means)"
     ))
 
-    # optional reference guides at each group mean
+# optional reference guides at each group mean
 # optional reference guides at each group mean (labels via annotations to allow rotation safely)
 if show_ticks:
     for g, m in sorted(means_map.dropna().items(), key=lambda kv: kv[1]):
@@ -1093,7 +1093,6 @@ if show_ticks:
     width=700,
     height=1400,  # roughly twice as tall
     margin=dict(l=40, r=20, t=60, b=70),
-
         xaxis=dict(title=f"{resp} mean for {fact} (x-axis group)", range=[lo, hi], zeroline=False),
         yaxis=dict(title=f"{resp} mean for {fact} (y-axis group)", range=[lo, hi], zeroline=False),
         title=f"Diffogram — Dunn ({adj}) @ α={float(a_sig):g}  (rule: segment crosses y=x ⇒ NOT significant)",
@@ -1136,6 +1135,7 @@ if draw_diff:
         st.error(f"Diffogram error: {e}")
 
 st.caption("💡 Reference for interpreting the diffogram: https://blogs.sas.com/content/iml/2017/10/18/diffogram-multiple-comparisons-sas.html")
+
 
 
 
