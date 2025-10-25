@@ -31,6 +31,9 @@ os.environ.setdefault("MPLCONFIGDIR", os.path.join(os.path.expanduser("~"), ".ma
 st.set_page_config(page_title="Kruskal–Wallis & Dunn", layout="wide")
 st.title("Kruskal–Wallis & Dunn — End-to-End Analysis")
 
+st.caption("💡 Developed by Dr. Gurdal Ertek, source code under https://github.com/gurdalertek/autodunn")
+st.caption("💡 You can visualize the exported `.dot` or `.svg` graph/network files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
+
 st.markdown("""
 Upload a **single data file** (`.csv`, `.xls`, or `.xlsx`).  
 **Assumptions:** first column = *categorical factor*, second column = *numeric response*, first row = *column titles*.
@@ -679,6 +682,7 @@ if draw_net:
 
     st.caption("💡 Only edges where the source group’s mean > target group’s mean are shown.")
     st.caption("💡 You can visualize `.dot` or `.svg` files using Graphviz Viewer, Gephi, yEd, or online: https://dreampuf.github.io/GraphvizOnline/")
+
 
 
 
