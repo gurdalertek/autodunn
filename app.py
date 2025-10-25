@@ -1074,10 +1074,11 @@ def _build_diffogram_from_dunn(sub_df, means_map, alpha_display, show_ticks=True
 
     # Set square layout (height = width)
     fig.update_layout(
-        autosize=False,
-        width=700,
-        height=700,
-        margin=dict(l=40, r=20, t=60, b=70),
+    autosize=False,
+    width=700,
+    height=1400,  # roughly twice as tall
+    margin=dict(l=40, r=20, t=60, b=70),
+
         xaxis=dict(title=f"{resp} mean for {fact} (x-axis group)", range=[lo, hi], zeroline=False),
         yaxis=dict(title=f"{resp} mean for {fact} (y-axis group)", range=[lo, hi], zeroline=False),
         title=f"Diffogram — Dunn ({adj}) @ α={float(a_sig):g}  (rule: segment crosses y=x ⇒ NOT significant)",
@@ -1120,3 +1121,4 @@ if draw_diff:
         st.error(f"Diffogram error: {e}")
 
 st.caption("💡 Reference for interpreting the diffogram: https://blogs.sas.com/content/iml/2017/10/18/diffogram-multiple-comparisons-sas.html")
+
